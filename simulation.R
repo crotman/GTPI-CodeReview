@@ -58,7 +58,7 @@ simulate_game <- function(...)
         mutate(
             idle = TRUE,
             completed_items = 0,
-            next_completion = as.numeric(N+1),
+            next_completion = 0,
             reworking = FALSE,
             action="0",
             time_to_complete = NA
@@ -97,8 +97,8 @@ simulate_game <- function(...)
                         as.logical(work_completed_now),
                         if_else(
                             as.logical(rework_current_item),
-                            as.numeric(now + Tf),
-                            as.numeric(now)
+                            now + Tf,
+                            now
                         ),
                         as.numeric(next_completion)
                     )
@@ -195,7 +195,15 @@ simulate_game <- function(...)
             ) %>% 
             select_at(vars(-contains("_todo")))
         
-        now = now + 1
+        
+        next_completion <- min(devs_work$next_completion)
+        
+        add_to_do <- rbinom(1, floor(next_completion - now), I) %>% 
+            sum()
+        
+        n_to_do <-  n_to_do + add_to_do
+        
+        now <-  max(now + 1, ceiling(next_completion))
 
     }
     
