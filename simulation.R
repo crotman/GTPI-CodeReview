@@ -242,6 +242,7 @@ simulate <- function(...)
    Rf <- params[[1]]$Rf
    Rk <- params[[1]]$Rk
    Qk <- params[[1]]$Qk_factor
+   simulation <- params[[1]]$simulation
    
    Now <- 0
 
@@ -271,15 +272,20 @@ simulate <- function(...)
        unnest()
 
    
+   print(simulation)
+   
    games
+   
+
    
 }    
     
-
+n_simulations <- 100
     
-parameters %<>% 
-    mutate(id_row = row_number()) %>% 
-    group_by(id_row) %>%  
+parameters %<>%
+    crossing(tibble(simulation = 1:n_simulations)) %>% 
+    mutate(id_row = row_number(), simulation_out = simulation) %>% 
+    group_by(id_row, simulation_out) %>%  
     nest() %>% 
     mutate(data = map(data, simulate)) %>% 
     unnest()
