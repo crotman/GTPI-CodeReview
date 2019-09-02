@@ -1,0 +1,108 @@
+---
+title: "Fix-kludge game"
+author: "Bruno Crotman"
+date: "01/09/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+
+library(xtable)
+library(tidyverse)
+library(knitr)
+
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Reproducing fix-kludge game
+
+
+```{r, eval=TRUE, code = readLines("simulation.r"), cache=TRUE, warning=FALSE }
+
+
+
+
+```
+
+
+This is the resulting payoff matrix:
+
+
+```{r}
+
+games_results <-  parameters %>% 
+    group_by(game, dev, strategy.y) %>% 
+    summarise(completed_items = mean(completed_items)) %>% 
+    ungroup() %>% 
+    mutate(dev = paste0("dev", as.character(dev))) %>% 
+    mutate(resultado = paste0(dev, " = ", as.character(completed_items))) %>% 
+    group_by(game) 
+
+    
+table <- games_results %>% 
+    summarise(
+        resultado = paste(resultado, collapse = ", " )
+    ) %>% 
+    mutate(
+        row = c(1,2,1,2),
+        col = c("c1","c1","c2","c2")
+    ) %>% 
+    select(-game) %>% 
+    spread(col, resultado) %>% 
+    rename("dev1: fix" = "c1", "dev1: kludge" = "c2" ) %>% 
+    mutate(Payoffs = c("dev0: fix", "dev0: kludge")) %>% 
+    select(Payoffs, "dev1: fix", "dev1: kludge" )
+
+
+kable(table) 
+
+
+```
+
+
+Considering a game where dev0 kludges and dev1 does not, these are the events concerning dev0. The table shows 5 simulations
+
+
+
+```{r}
+
+events_now <- events %>% filter(work_completed_now) %>% 
+    filter(
+        dev == 0 &
+        game == 1 &
+        simulation <= 5 &
+        now != 1
+            
+    ) %>% 
+    select(simulation, now, next_completion, dev, strategy.y, completed_items,  reworking, next_completion, Tf, Tk)
+    
+    
+ 
+kable(events_now)
+
+
+
+```
+
+
+These are the events concerning dev1
+
+
+
+```{r}
+events_now <- events %>% filter(work_completed_now) %>% 
+    filter(
+        dev == 1 &
+        game == 1 &
+        simulation <= 5 &
+        now != 1
+    ) %>% 
+    select(simulation, now, next_completion, dev, strategy.y, completed_items,  reworking, next_completion, Tf, Tk)
+    
+ 
+kable(events_now)
+
+```
+
+
+

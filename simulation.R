@@ -2,6 +2,7 @@ library(tidyverse)
 library(magrittr)
 
 
+set.seed(123)
 
 parameters <- tibble(
     T = c(29.79), #resolution time
@@ -24,6 +25,10 @@ strategies <- tibble(
     pk = c(0,1)
 )
 
+events <- tibble(
+    game = integer()
+)
+
 
 parameters %<>%
     mutate(
@@ -38,6 +43,8 @@ simulate_game <- function(...)
 {
     this_game <- list(...)
 
+    game <- this_game[[1]]$game_id 
+    simulation <- this_game[[1]]$simulation
     N <- this_game[[1]]$N 
     I <- this_game[[1]]$I 
     Tk <- this_game[[1]]$Tk 
@@ -50,7 +57,6 @@ simulate_game <- function(...)
     n_to_do <- 0
     
 
-        
     devs_work <- this_game[[1]] %>% 
         select_at(vars(num_range(prefix = "", range = 0:1000))) %>%  
         gather(dev, strategy) %>% 
@@ -58,7 +64,7 @@ simulate_game <- function(...)
         mutate(
             idle = TRUE,
             completed_items = 0,
-            next_completion = 0,
+            next_completion = 0.00001,
             reworking = FALSE,
             action="0",
             time_to_complete = NA
@@ -72,22 +78,26 @@ simulate_game <- function(...)
         #Finishing (or setting rework on) current items
         devs_work %<>% 
             mutate(
-                work_completed_now = next_completion < now                    
+                work_completed_now = next_completion <= now                    
                 ,
                 rework_current_item = 
                     if_else(
                         reworking,
-                        as.integer(0),
+                        0L,
                         if_else(
-                            action == "k",
-                            rbinom(1, 1, Rk),
-                            rbinom(1, 1, Rf)
+                            idle,
+                            0L,
+                            if_else(
+                                action == "k",
+                                rbinom(1, 1, Rk),
+                                rbinom(1, 1, Rf)
+                            )
                         )
                     )
                 ,
                 completed_items =
                     if_else(
-                        work_completed_now & !rework_current_item,
+                        work_completed_now & !rework_current_item & !idle,
                         completed_items + 1,
                         completed_items
                     )
@@ -97,8 +107,8 @@ simulate_game <- function(...)
                         as.logical(work_completed_now),
                         if_else(
                             as.logical(rework_current_item),
-                            now + Tf,
-                            now
+                            next_completion + Tf,
+                            next_completion
                         ),
                         as.numeric(next_completion)
                     )
@@ -130,10 +140,10 @@ simulate_game <- function(...)
                 as.logical
             )
         
-
+        
         
         completed_k <- devs_work %>% 
-            filter(work_completed_now & action == "k" ) %>% 
+            filter(work_completed_now & action == "k" & !reworking ) %>% 
             nrow()
         
         Tk <- Tk * (1 + Qk_factor)^completed_k
@@ -189,12 +199,25 @@ simulate_game <- function(...)
                 next_completion =
                     if_else(
                         achou,
-                        now + time_to_complete_todo,
+                        next_completion + time_to_complete_todo,
                         next_completion
                     ),
             ) %>% 
             select_at(vars(-contains("_todo")))
         
+
+        
+        log_devs_work <- devs_work %>% 
+            mutate(
+                now = now,
+                Tf = Tf,
+                Tk = Tk,
+                game = game,
+                simulation = simulation
+            )
+        
+        events <<- events %>% 
+            bind_rows(log_devs_work)
         
         next_completion <- min(devs_work$next_completion)
         
@@ -203,11 +226,14 @@ simulate_game <- function(...)
         
         n_to_do <-  n_to_do + add_to_do
         
+        
+        
+        
         now <-  max(now + 1, ceiling(next_completion))
 
     }
     
-    print(devs_work)
+    # print(devs_work)
     
     devs_work
 }
@@ -243,7 +269,7 @@ simulate <- function(...)
    Rk <- params[[1]]$Rk
    Qk <- params[[1]]$Qk_factor
    simulation <- params[[1]]$simulation
-   
+
    Now <- 0
 
    n_strategies <- nrow(strategies)
@@ -266,13 +292,15 @@ simulate <- function(...)
        ) %>% 
        spread(dev, strategy) %>% 
        crossing(params_tibble) %>% 
+       mutate(game_id = game) %>% 
+       mutate(simulation = simulation) %>% 
        group_by(game) %>% 
        nest() %>% 
        mutate(data = map(data, simulate_game)) %>% 
        unnest()
 
    
-   print(simulation)
+   # print(simulation)
    
    games
    
@@ -282,6 +310,7 @@ simulate <- function(...)
     
 n_simulations <- 100
     
+
 parameters %<>%
     crossing(tibble(simulation = 1:n_simulations)) %>% 
     mutate(id_row = row_number(), simulation_out = simulation) %>% 
