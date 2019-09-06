@@ -9,7 +9,7 @@ parameters <- tibble(
     N = c(360), #iteration duration
     D = c(2), # number of developers
     I = 1, #work item arrival probability
-    R = 0.69, #rework probability
+    R = 0.069, #rework probability
     Tf_factor = 1.1, #factor do be multiplied by T to make T_f,
     Rf_factor = 0.9,
     Tk_factor = 0.75,
@@ -43,10 +43,19 @@ simulate_game <- function(...)
 {
     this_game <- list(...)
 
-    game <- this_game[[1]]$game_id 
+    game <- this_game[[1]]$game_id
+    
+    
     simulation <- this_game[[1]]$simulation
+    
+    
+    print(simulation)
+    
+    
     N <- this_game[[1]]$N 
     I <- this_game[[1]]$I 
+    T <- this_game[[1]]$T 
+    R <- this_game[[1]]$R 
     Tk <- this_game[[1]]$Tk 
     Tf <- this_game[[1]]$Tf 
     Rk <- this_game[[1]]$Rk 
@@ -82,16 +91,12 @@ simulate_game <- function(...)
                 ,
                 rework_current_item = 
                     if_else(
-                        reworking,
+                        idle,
                         0L,
                         if_else(
-                            idle,
-                            0L,
-                            if_else(
-                                action == "k",
-                                rbinom(1, 1, Rk),
-                                rbinom(1, 1, Rf)
-                            )
+                            action == "k",
+                            rbinom(1, 1, Rk),
+                            rbinom(1, 1, Rf)
                         )
                     )
                 ,
@@ -268,6 +273,8 @@ simulate <- function(...)
    Rf <- params[[1]]$Rf
    Rk <- params[[1]]$Rk
    Qk <- params[[1]]$Qk_factor
+   T <- params[[1]]$T
+   R <- params[[1]]$R
    simulation <- params[[1]]$simulation
 
    Now <- 0
@@ -297,6 +304,19 @@ simulate <- function(...)
        group_by(game) %>% 
        nest() %>% 
        mutate(data = map(data, simulate_game)) %>% 
+       mutate(
+           N = N,
+           D = D,
+           I = I,
+           Tf = Tf,
+           Tk = Tk,
+           Rf = Rf,
+           Rk = Rk,
+           Qk = Qk,
+           T = T,
+           R = R
+           
+       ) %>% 
        unnest()
 
    
@@ -312,16 +332,27 @@ n_simulations <- 100
     
 
 parameters %<>%
+    mutate(id_param = row_number()) %>% 
     crossing(tibble(simulation = 1:n_simulations)) %>% 
-    mutate(id_row = row_number(), simulation_out = simulation) %>% 
-    group_by(id_row, simulation_out) %>%  
+    mutate(id_simul = row_number(), simulation_out = simulation) %>% 
+    group_by(id_param, simulation_out) %>%  
     nest() %>% 
     mutate(data = map(data, simulate)) %>% 
     unnest()
 
 
+games_results <-  parameters %>% 
+    group_by(id_param, game, dev, strategy.y) %>% 
+    summarise(completed_items = mean(completed_items)) %>% 
+    ungroup() %>% 
+    mutate(dev = paste0("dev", as.character(dev))) %>% 
+    mutate(resultado = paste0(dev, " = ", as.character(completed_items))) %>% 
+    group_by(game) 
 
 
+saveRDS(parameters, "cache/parameters.rds")
+
+saveRDS(games_results , "cache/games_results.rds")
 
 
 

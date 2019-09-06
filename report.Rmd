@@ -11,13 +11,17 @@ library(xtable)
 library(tidyverse)
 library(knitr)
 
-knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(
+	echo = FALSE,
+	message = FALSE,
+	warning = FALSE
+)
 ```
 
 ## Reproducing fix-kludge game
 
 
-```{r, eval=TRUE, code = readLines("simulation.r"), cache=TRUE, warning=FALSE }
+```{r eval=TRUE, warning=FALSE, code=readLines("simulation.r")}
 
 
 
@@ -30,13 +34,6 @@ This is the resulting payoff matrix:
 
 ```{r}
 
-games_results <-  parameters %>% 
-    group_by(game, dev, strategy.y) %>% 
-    summarise(completed_items = mean(completed_items)) %>% 
-    ungroup() %>% 
-    mutate(dev = paste0("dev", as.character(dev))) %>% 
-    mutate(resultado = paste0(dev, " = ", as.character(completed_items))) %>% 
-    group_by(game) 
 
     
 table <- games_results %>% 
