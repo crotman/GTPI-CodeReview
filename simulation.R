@@ -351,7 +351,7 @@ simulate <- function(...)
    
 }    
     
-n_simulations <- 30
+n_simulations <- 100
 
 
 plan(multiprocess)    
