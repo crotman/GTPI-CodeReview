@@ -1,21 +1,54 @@
 library(tidyverse)
 library(magrittr)
+library(furrr)
+library(tictoc)
 
 
 set.seed(123)
+
+
+# R_tib <- tibble( R = c(0.5, 0.69, 0.8, 0.10, 0.12) )
+# 
+# Tf_factor_tib <- tibble( Tf_factor = c(1.05, 1.1, 1.2, 1.3) )
+# 
+# Tk_factor_tib <- tibble( Tk_factor = c(0.6, 0.75, 0.8, 0.9) )
+# 
+# Rf_factor_tib <- tibble( Rf_factor = c(1.05, 1.1, 1.2, 1.3) )
+# 
+# Rk_factor_tib <- tibble( Rk_factor = c(0.6, 0.75, 0.8, 0.9) )
+# 
+# Qk_factor_tib <- tibble( Qk_factor = c(0.02, 0.035, 0.5, 0.75, 0.1) )
+
+R_tib <- tibble( R = c(  0.069 ) )
+
+Tf_factor_tib <- tibble( Tf_factor = c(1.05, 1.1,  1.3) )
+
+Tk_factor_tib <- tibble( Tk_factor = c(0.6, 0.75, 0.9) )
+
+Rf_factor_tib <- tibble( Rf_factor = c(1.05, 1.1,  1.3) )
+
+Rk_factor_tib <- tibble( Rk_factor = c(0.6, 0.75,  0.9) )
+
+Qk_factor_tib <- tibble( Qk_factor = c(  0.5, 0.6) )
+
 
 parameters <- tibble(
     T = c(29.79), #resolution time
     N = c(360), #iteration duration
     D = c(2), # number of developers
     I = 1, #work item arrival probability
-    R = 0.069, #rework probability
-    Tf_factor = 1.1, #factor do be multiplied by T to make T_f,
-    Rf_factor = 0.9,
-    Tk_factor = 0.75,
-    Rk_factor = 1.05,
-    Qk_factor = 0.05
-)
+) %>% 
+    crossing(R_tib) %>% 
+    crossing(Tf_factor_tib) %>% 
+    crossing(Tk_factor_tib) %>% 
+    crossing(Rf_factor_tib) %>% 
+    crossing(Rk_factor_tib) %>% 
+    crossing(Qk_factor_tib)
+
+
+
+
+
 
 
 strategies <- tibble(
@@ -49,8 +82,7 @@ simulate_game <- function(...)
     simulation <- this_game[[1]]$simulation
     
     
-    print(simulation)
-    
+
     
     N <- this_game[[1]]$N 
     I <- this_game[[1]]$I 
@@ -276,7 +308,10 @@ simulate <- function(...)
    T <- params[[1]]$T
    R <- params[[1]]$R
    simulation <- params[[1]]$simulation
-
+   id_param <- params[[1]]$id_param
+   
+   print(paste0("param:", id_param, "simul", simulation))
+   
    Now <- 0
 
    n_strategies <- nrow(strategies)
@@ -314,7 +349,8 @@ simulate <- function(...)
            Rk = Rk,
            Qk = Qk,
            T = T,
-           R = R
+           R = R,
+
            
        ) %>% 
        unnest()
@@ -328,32 +364,36 @@ simulate <- function(...)
    
 }    
     
-n_simulations <- 100
+n_simulations <- 5
     
+
+tic()
 
 parameters %<>%
     mutate(id_param = row_number()) %>% 
     crossing(tibble(simulation = 1:n_simulations)) %>% 
-    mutate(id_simul = row_number(), simulation_out = simulation) %>% 
-    group_by(id_param, simulation_out) %>%  
+    mutate(id_simul = row_number(), simulation_out = simulation, id_param_out = id_param) %>% 
+    group_by(id_param_out, simulation_out) %>%  
     nest() %>% 
-    mutate(data = map(data, simulate)) %>% 
+    mutate(data = future_map(data, simulate, .progress = TRUE)) %>% 
     unnest()
 
+toc()
 
-games_results <-  parameters %>% 
-    group_by(id_param, game, dev, strategy.y) %>% 
-    summarise(completed_items = mean(completed_items)) %>% 
-    ungroup() %>% 
-    mutate(dev = paste0("dev", as.character(dev))) %>% 
-    mutate(resultado = paste0(dev, " = ", as.character(completed_items))) %>% 
-    group_by(game) 
-
-
-saveRDS(parameters, "cache/parameters.rds")
-
-saveRDS(games_results , "cache/games_results.rds")
-
+# 
+# games_results <-  parameters %>% 
+#     group_by(id_param, game, dev, strategy.y) %>% 
+#     summarise(completed_items = mean(completed_items)) %>% 
+#     ungroup() %>% 
+#     mutate(dev = paste0("dev", as.character(dev))) %>% 
+#     mutate(resultado = paste0(dev, " = ", as.character(completed_items))) %>% 
+#     group_by(game) 
+# 
+# 
+# saveRDS(parameters, "cache/parameters.rds")
+# 
+# saveRDS(games_results , "cache/games_results.rds")
+# 
 
 
 
