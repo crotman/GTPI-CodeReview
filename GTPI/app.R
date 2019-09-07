@@ -39,15 +39,16 @@ ui <- fluidPage(
 # Define server logic required to draw a histogram
 server <- function(input, output) {
 
-    parameters <- readRDS("../cache/parameters.rds")
+    parameters <- readRDS("../cache/parameters_teste.rds")
 
-    games_results <- readRDS("../cache/games_results.rds")
+    games_results <- readRDS("../cache/games_results_teste.rds")
     
         
     
     output$tabela <- renderDataTable({
         
         table <- games_results %>% 
+            filter(id_param == 1) %>% 
             select(-id_param ) %>% 
             summarise(
                 resultado = paste(resultado, collapse = ", " )

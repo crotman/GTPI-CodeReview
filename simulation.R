@@ -7,42 +7,32 @@ library(tictoc)
 set.seed(123)
 
 
-# R_tib <- tibble( R = c(0.5, 0.69, 0.8, 0.10, 0.12) )
-# 
-# Tf_factor_tib <- tibble( Tf_factor = c(1.05, 1.1, 1.2, 1.3) )
-# 
-# Tk_factor_tib <- tibble( Tk_factor = c(0.6, 0.75, 0.8, 0.9) )
-# 
-# Rf_factor_tib <- tibble( Rf_factor = c(1.05, 1.1, 1.2, 1.3) )
-# 
-# Rk_factor_tib <- tibble( Rk_factor = c(0.6, 0.75, 0.8, 0.9) )
-# 
-# Qk_factor_tib <- tibble( Qk_factor = c(0.02, 0.035, 0.5, 0.75, 0.1) )
+Tf_base <- tibble(T = 29.79) %>% 
+    mutate(Tf = 1.1 * T)
 
-R_tib <- tibble( R = c(  0.069 ) )
+Tf_Tk_tib <- tibble( Tk_Tf_factor = c( 0.6, 0.6818182, 0.75, 0.8, 0.85, 0.9 ) ) %>% 
+    crossing(Tf_base) %>% 
+    mutate(Tk = Tk_Tf_factor * Tf )
 
-Tf_factor_tib <- tibble( Tf_factor = c(1.05, 1.1,  1.3) )
+Rk_base <- tibble (R = c(0.05, 0.06, 0.0690, 0.08, 0.09, 0.1)) %>% 
+    mutate(Rk = 1.05 * R)
 
-Tk_factor_tib <- tibble( Tk_factor = c(0.6, 0.75, 0.9) )
+Rf_Rk_tib <- tibble( Rk_Rf_factor = c( 0.7, 0.75, 0.8, 0.8571429, 0.9, 0.95 ) ) %>% 
+    crossing(Rk_base) %>% 
+    mutate(Rf = Rk_Rf_factor * Rk )
+    
 
-Rf_factor_tib <- tibble( Rf_factor = c(1.05, 1.1,  1.3) )
+Qk_factor_tib <- tibble( Qk_factor = c( 0.03, 0.04, 0.05, 0.06, 0.07, 0.08) )
 
-Rk_factor_tib <- tibble( Rk_factor = c(0.6, 0.75,  0.9) )
-
-Qk_factor_tib <- tibble( Qk_factor = c(  0.5, 0.6) )
 
 
 parameters <- tibble(
-    T = c(29.79), #resolution time
     N = c(360), #iteration duration
     D = c(2), # number of developers
     I = 1, #work item arrival probability
 ) %>% 
-    crossing(R_tib) %>% 
-    crossing(Tf_factor_tib) %>% 
-    crossing(Tk_factor_tib) %>% 
-    crossing(Rf_factor_tib) %>% 
-    crossing(Rk_factor_tib) %>% 
+    crossing(Tf_Tk_tib) %>% 
+    crossing(Rf_Rk_tib) %>% 
     crossing(Qk_factor_tib)
 
 
@@ -63,14 +53,7 @@ events <- tibble(
 )
 
 
-parameters %<>%
-    mutate(
-        Tf = T * Tf_factor,
-        Rf = R * Rf_factor,
-        Tk = T * Tk_factor,
-        Rk = R * Rk_factor
-    )
-    
+
 #simulate one game with one strategy per dev
 simulate_game <- function(...)
 {
@@ -305,6 +288,8 @@ simulate <- function(...)
    Rf <- params[[1]]$Rf
    Rk <- params[[1]]$Rk
    Qk <- params[[1]]$Qk_factor
+   Tk_Tf_factor <- params[[1]]$Tk_Tf_factor
+   Rk_Rf_factor <- params[[1]]$Rk_Rf_factor
    T <- params[[1]]$T
    R <- params[[1]]$R
    simulation <- params[[1]]$simulation
@@ -350,6 +335,8 @@ simulate <- function(...)
            Qk = Qk,
            T = T,
            R = R,
+           Tk_Tf_factor = Tk_Tf_factor,
+           Rk_Rf_factor = Rk_Rf_factor
 
            
        ) %>% 
@@ -364,8 +351,10 @@ simulate <- function(...)
    
 }    
     
-n_simulations <- 5
-    
+n_simulations <- 30
+
+
+plan(multiprocess)    
 
 tic()
 
@@ -376,24 +365,31 @@ parameters %<>%
     group_by(id_param_out, simulation_out) %>%  
     nest() %>% 
     mutate(data = future_map(data, simulate, .progress = TRUE)) %>% 
-    unnest()
+    unnest() %>% 
+    rename(id_param = id_param_out)
 
 toc()
 
-# 
-# games_results <-  parameters %>% 
-#     group_by(id_param, game, dev, strategy.y) %>% 
-#     summarise(completed_items = mean(completed_items)) %>% 
-#     ungroup() %>% 
-#     mutate(dev = paste0("dev", as.character(dev))) %>% 
-#     mutate(resultado = paste0(dev, " = ", as.character(completed_items))) %>% 
-#     group_by(game) 
-# 
-# 
-# saveRDS(parameters, "cache/parameters.rds")
-# 
-# saveRDS(games_results , "cache/games_results.rds")
-# 
+parameters_grouped <- parameters %>% 
+    select( -simulation_out  ) %>% 
+    select( id_param:pk ) %>% 
+    select(-game, -(dev:pk) ) %>% 
+    distinct()
+
+
+games_results <-  parameters %>%
+    group_by(id_param, game, dev, strategy.y) %>%
+    summarise(completed_items = mean(completed_items)) %>%
+    ungroup() %>%
+    mutate(dev = paste0("dev", as.character(dev))) %>%
+    mutate(resultado = paste0(dev, " = ", as.character(completed_items))) %>%
+    group_by(game)
+
+
+saveRDS(parameters_grouped, "cache/parameters.rds")
+
+saveRDS(games_results , "cache/games_results.rds")
+
 
 
 
