@@ -1,0 +1,12 @@
+name: GTPI
+title: GTPI
+username:
+account: crotman
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 1164154
+bundleId: 2398401
+url: https://crotman.shinyapps.io/GTPI/
+when: 1567998774.98459
+asMultiple: FALSE
+asStatic: FALSE

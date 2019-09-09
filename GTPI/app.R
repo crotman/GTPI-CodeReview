@@ -14,9 +14,9 @@ library(shinyWidgets)
 library(scales)
 library(magrittr )
 
-parameters <- readRDS("../cache/parameters_cloud.rds") %>%  filter(Qk != 0.9)
+parameters <- readRDS("parameters_cloud.rds") %>%  filter(Qk != 0.9)
 
-games_results <- readRDS("../cache/games_results_cloud.rds")
+games_results <- readRDS("games_results_cloud.rds")
 
 
 
